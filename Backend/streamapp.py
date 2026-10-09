@@ -460,76 +460,76 @@ elif page == "Health Trends":
     st.caption("Illustrative demo trends, not live wearable data.")
 
 
+
 # -------------------- AI COMPANION --------------------
 
 elif page == "AI Companion":
 
     hero(
         "Your AI Companion 💜",
-        "A friendly space to talk about how you're feeling."
+        "A personalised space for emotional wellbeing and daily check-ins."
     )
+
+    st.markdown("""
+    <div class="mw-card">
+        <h3>🌷 A little support, just for you</h3>
+        <p>
+            We're building a more personalised AI companion that can
+            understand your wellbeing check-ins, offer thoughtful
+            conversations, and help you reflect on your daily patterns.
+        </p>
+        <p class="muted">
+            Designed to support self-reflection, not replace professional care.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.info(
+        "✨ In Development — We're working on making your AI Companion "
+        "more conversational, personalised, and context-aware."
+    )
+
+    st.markdown("### What's coming")
+
+    c1, c2, c3 = st.columns(3)
+
+    with c1:
+        st.markdown("""
+        <div class="mw-card">
+            <h3>💬</h3>
+            <b>Natural Conversations</b>
+            <p class="muted">
+                More meaningful, supportive conversations.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with c2:
+        st.markdown("""
+        <div class="mw-card">
+            <h3>🧠</h3>
+            <b>Personalised Insights</b>
+            <p class="muted">
+                Wellbeing reflections informed by your recorded patterns.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with c3:
+        st.markdown("""
+        <div class="mw-card">
+            <h3>🌸</h3>
+            <b>Daily Check-ins</b>
+            <p class="muted">
+                Gentle prompts to reflect on how you're feeling.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
 
     st.caption(
-        "This prototype uses simple response rules, not a trained AI model."
+        "This feature is under active development and is not yet "
+        "the complete AI companion experience."
     )
-
-    for role, message in st.session_state.chat_history:
-        with st.chat_message(
-            role,
-            avatar="💜" if role == "assistant" else "🌷"
-        ):
-            st.write(message)
-
-    prompt = st.chat_input("Tell me what's on your mind...")
-
-    if prompt:
-
-        st.session_state.chat_history.append(("user", prompt))
-
-        text = prompt.lower()
-
-        if any(w in text for w in ["sad", "low", "lonely", "cry"]):
-            reply = (
-                "I'm sorry things feel heavy right now. 💜 "
-                "Would you like to talk about what's been happening?"
-            )
-
-        elif any(w in text for w in ["stress", "pressure", "overwhelmed"]):
-            reply = (
-                "That sounds like a lot to handle. "
-                "Take a slow breath. Is there one small thing "
-                "you could make easier for yourself right now?"
-            )
-
-        elif any(w in text for w in ["sleep", "tired", "exhausted"]):
-            reply = (
-                "Rest matters. If possible, give yourself some "
-                "quiet time and a gentle wind-down routine."
-            )
-
-        elif any(w in text for w in ["anxiety", "anxious", "worried"]):
-            reply = (
-                "Let's take it one moment at a time. "
-                "Notice five things around you and breathe slowly. "
-                "If this keeps happening, consider reaching out "
-                "to someone you trust or a professional."
-            )
-
-        elif any(w in text for w in ["hi", "hello", "hey"]):
-            reply = "Hey 💜 How are you feeling today?"
-
-        else:
-            reply = (
-                "I'm listening. Tell me a little more, "
-                "if you feel comfortable. We can think through "
-                "one small next step together."
-            )
-
-        st.session_state.chat_history.append(
-            ("assistant", reply)
-        )
-
-        st.rerun()
 
 
 # -------------------- COMFORT VOICE --------------------
@@ -538,24 +538,60 @@ elif page == "Comfort Voice":
 
     hero(
         "Comfort Voice 🎙️",
-        "A familiar voice can make a moment feel a little warmer."
+        "A little comfort, in a voice that feels familiar."
     )
+
+    st.markdown("""
+    <div class="mw-card">
+        <h3>💜 Comfort, in your own way</h3>
+        <p>
+            We're exploring a voice-based wellbeing experience designed
+            to offer calming messages and a greater sense of familiarity
+            during difficult moments.
+        </p>
+        <p class="muted">
+            Any future use of a familiar person's voice will require
+            their explicit permission.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
     st.info(
-        "Only use recordings shared with the person's permission. "
-        "This prototype previews audio; it does not clone voices."
+        "🎧 In Development — Personalised voice experiences and "
+        "comfort audio are still being worked on."
     )
 
-    audio = st.file_uploader(
-        "Upload a voice recording",
-        type=["wav", "mp3", "m4a", "ogg"]
+    st.markdown("### What's coming")
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.markdown("""
+        <div class="mw-card">
+            <h3>🎵 Comfort Audio</h3>
+            <p class="muted">
+                Calming audio and supportive messages for moments
+                when you need a pause.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with c2:
+        st.markdown("""
+        <div class="mw-card">
+            <h3>🫶 Familiar Voice Experience</h3>
+            <p class="muted">
+                An optional, permission-based familiar-voice experience
+                planned for a future version.We are still working over it .. 
+                Really sorry for inconvinience 
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.caption(
+        "Voice personalisation is not available in this prototype yet. "
+        "No voice cloning is performed by this page."
     )
-
-    if audio:
-        st.audio(audio)
-        st.success("Your audio preview is ready.")
-
-
 # -------------------- GAMES --------------------
 
 elif page == "Games":
