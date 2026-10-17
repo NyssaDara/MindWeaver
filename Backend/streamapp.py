@@ -101,38 +101,71 @@ div.stButton > button:hover {
 
 def initialize():
     defaults = {
-        "name": "Priya Sharma",
-        "age": 26,
-        "blood_group": "O+",
+        "name": "",
+        "age": None,
+        "blood_group": "",
         "mood_history": [],
-        "chat_history": [
-            (
-                "assistant",
-                "Hey 💜 I'm here for you. "
-                "How are you feeling today?"
-            )
-        ],
-        "tasks": [
-            {"name": "Drink water", "time": "11:00 AM", "done": False},
-            {"name": "Take a short walk", "time": "04:00 PM", "done": False},
-            {"name": "Read for 20 minutes", "time": "07:00 PM", "done": False},
-            {"name": "Wind down for sleep", "time": "10:30 PM", "done": False}
-        ],
-        "medications": [
-            {"name": "Vitamin supplement", "time": "09:00 AM", "done": False}
-        ],
+        "chat_history": [],
+        "tasks": [],
+        "medications": [],
         "appointments": [],
         "health": {
-            "heart_rate": 72,
-            "spo2": 98,
-            "steps": 8432,
-            "sleep": 7.5
-        }
+            "heart_rate": None,
+            "spo2": None,
+            "steps": None,
+            "sleep": None
+        },
+        "health_history": [],
+        "wearable": {"name": "", "connected": False}
     }
 
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
+
+    if st.session_state.name == "Priya Sharma":
+        st.session_state.name = ""
+    if st.session_state.age == 26:
+        st.session_state.age = None
+    if st.session_state.blood_group == "O+":
+        st.session_state.blood_group = ""
+
+    if st.session_state.health in (
+        {"heart_rate": 72, "spo2": 98, "steps": 8432, "sleep": 7.5},
+        {"heart_rate": 76, "spo2": 98, "steps": 6421, "sleep": 7.0}
+    ):
+        st.session_state.health = {
+            "heart_rate": None,
+            "spo2": None,
+            "steps": None,
+            "sleep": None
+        }
+
+    default_task_schedule = {
+        ("Drink water", "11:00 AM"),
+        ("Take a short walk", "04:00 PM"),
+        ("Read for 20 minutes", "07:00 PM"),
+        ("Wind down for sleep", "10:30 PM")
+    }
+    if {
+        (task["name"], task["time"])
+        for task in st.session_state.tasks
+    } == default_task_schedule:
+        st.session_state.tasks = []
+
+    if st.session_state.medications == [
+        {"name": "Vitamin supplement", "time": "09:00 AM", "done": False}
+    ]:
+        st.session_state.medications = []
+
+    if st.session_state.chat_history == [
+        (
+            "assistant",
+            "Hey 💜 I'm here for you. "
+            "How are you feeling today?"
+        )
+    ]:
+        st.session_state.chat_history = []
 
 
 initialize()
@@ -165,6 +198,44 @@ def api_post(endpoint, payload):
         return False, {}
 
 
+def health_metric(value, suffix="", grouped=False):
+    if value is None:
+        return "—"
+    if grouped:
+        value = f"{int(value):,}"
+    return f"{value}{suffix}"
+
+
+def game_progress(game_name):
+    progress = st.session_state.setdefault("game_progress", {})
+    return progress.setdefault(game_name, {"score": 0, "level": 1})
+
+
+def award_game_level(game_name, points):
+    progress = game_progress(game_name)
+    progress["score"] += points
+    progress["level"] += 1
+
+
+def valid_sudoku(board):
+    required = set(range(1, 10))
+    rows_valid = all(set(row) == required for row in board)
+    columns_valid = all(
+        {board[row][column] for row in range(9)} == required
+        for column in range(9)
+    )
+    boxes_valid = all(
+        {
+            board[row][column]
+            for row in range(box_row, box_row + 3)
+            for column in range(box_column, box_column + 3)
+        } == required
+        for box_row in (0, 3, 6)
+        for box_column in (0, 3, 6)
+    )
+    return rows_valid and columns_valid and boxes_valid
+
+
 # -------------------- SIDEBAR --------------------
 
 with st.sidebar:
@@ -176,9 +247,8 @@ with st.sidebar:
         "MENU",
         [
             "Home",
-            "Health",
+            "Health & Wearables",
             "Mood & Wellbeing",
-            "Wearables",
             "Health Trends",
             "AI Companion",
             "Comfort Voice",
@@ -194,7 +264,7 @@ with st.sidebar:
     )
 
     st.divider()
-    st.markdown(f"**{st.session_state.name}**")
+    st.markdown(f"**{st.session_state.name or 'Profile'}**")
     st.caption("Your personal wellbeing space")
 
 
@@ -202,8 +272,9 @@ with st.sidebar:
 
 if page == "Home":
 
+    first_name = st.session_state.name.strip().split()
     hero(
-        f"Hello, {st.session_state.name.split()[0]} 🌷",
+        f"Hello, {first_name[0]} 🌷" if first_name else "Your dashboard 🌷",
         "Small steps every day can lead to big changes."
     )
 
@@ -211,10 +282,10 @@ if page == "Home":
 
     c1, c2, c3, c4 = st.columns(4)
 
-    c1.metric("Heart Rate", f"{h['heart_rate']} bpm")
-    c2.metric("SpO₂", f"{h['spo2']}%")
-    c3.metric("Steps Today", f"{h['steps']:,}")
-    c4.metric("Sleep", f"{h['sleep']} hours")
+    c1.metric("Heart Rate", health_metric(h["heart_rate"], " bpm"))
+    c2.metric("SpO₂", health_metric(h["spo2"], "%"))
+    c3.metric("Steps Today", health_metric(h["steps"], grouped=True))
+    c4.metric("Sleep", health_metric(h["sleep"], " hours"))
 
     st.markdown("### Your Health, Our Priority")
 
@@ -234,11 +305,14 @@ if page == "Home":
         st.markdown("### Today's Focus")
 
         a, b, c = st.columns(3)
-        a.metric("Mood", "Good")
+        a.metric("Mood", "—")
         b.metric(
             "Tasks Done",
-            f"{sum(t['done'] for t in st.session_state.tasks)}"
-            f"/{len(st.session_state.tasks)}"
+            (
+                f"{sum(t['done'] for t in st.session_state.tasks)}"
+                f"/{len(st.session_state.tasks)}"
+                if st.session_state.tasks else "—"
+            )
         )
         c.metric("Check-ins", len(st.session_state.mood_history))
 
@@ -251,71 +325,107 @@ if page == "Home":
         </div>
         """, unsafe_allow_html=True)
 
-    st.info("The health values shown here are sample demo data.")
+ 
+# -------------------- HEALTH & WEARABLES --------------------
 
-
-# -------------------- HEALTH --------------------
-
-elif page == "Health":
+elif page == "Health & Wearables":
 
     hero(
-        "Your Health Overview 💗",
-        "Keep your health information together in one place."
+        "Health & Wearables",
+        "Enter health readings and wearable details in one place."
     )
 
     h = st.session_state.health
+    wearable = st.session_state.wearable
 
-    with st.form("health_form"):
+    with st.form("health_wearable_form"):
 
         c1, c2 = st.columns(2)
 
         with c1:
             heart_rate = st.number_input(
-                "Heart rate (bpm)", 30, 220,
-                int(h["heart_rate"])
+                "Heart rate (bpm)",
+                min_value=30,
+                max_value=220,
+                value=h["heart_rate"],
+                placeholder="Not entered"
             )
             spo2 = st.number_input(
-                "SpO₂ (%)", 50, 100,
-                int(h["spo2"])
+                "SpO₂ (%)",
+                min_value=50,
+                max_value=100,
+                value=h["spo2"],
+                placeholder="Not entered"
             )
 
         with c2:
             steps = st.number_input(
-                "Steps today", 0, 100000,
-                int(h["steps"]), step=100
+                "Steps today",
+                min_value=0,
+                max_value=100000,
+                value=h["steps"],
+                step=100,
+                placeholder="Not entered"
             )
             sleep = st.number_input(
-                "Sleep (hours)", 0.0, 24.0,
-                float(h["sleep"]), step=0.25
+                "Sleep (hours)",
+                min_value=0.0,
+                max_value=24.0,
+                value=h["sleep"],
+                step=0.25,
+                placeholder="Not entered"
             )
 
-        save = st.form_submit_button("Save Health Check-in")
+        st.subheader("Wearable")
+        wearable_name = st.text_input(
+            "Wearable name",
+            value=wearable["name"],
+            placeholder="e.g. Fitbit, Garmin, Apple Watch"
+        )
+        wearable_connected = st.checkbox(
+            "This wearable is connected",
+            value=wearable["connected"]
+        )
+        save = st.form_submit_button("Save")
 
     if save:
-        st.session_state.health = {
-            "heart_rate": heart_rate,
-            "spo2": spo2,
-            "steps": steps,
-            "sleep": sleep
-        }
+        if wearable_connected and not wearable_name.strip():
+            st.error("Enter the wearable name before marking it connected.")
+        else:
+            st.session_state.wearable = {
+                "name": wearable_name.strip(),
+                "connected": wearable_connected
+            }
+            st.session_state.health = {
+                "heart_rate": heart_rate,
+                "spo2": spo2,
+                "steps": steps,
+                "sleep": sleep
+            }
 
-        st.success("Health check-in saved for this session!")
-
-        st.caption(
-            "To save to MySQL, connect this form to your Flask API."
-        )
+            if any(value is not None for value in st.session_state.health.values()):
+                st.session_state.health_history.append({
+                    "Date": str(date.today()),
+                    "Heart Rate": heart_rate,
+                    "SpO₂": spo2,
+                    "Steps": steps,
+                    "Sleep Hours": sleep
+                })
+            st.success("Saved for this session.")
 
     h = st.session_state.health
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Heart Rate", f"{h['heart_rate']} bpm")
-    c2.metric("SpO₂", f"{h['spo2']}%")
-    c3.metric("Steps", f"{h['steps']:,}")
-    c4.metric("Sleep", f"{h['sleep']} hours")
+    c1.metric("Heart Rate", health_metric(h["heart_rate"], " bpm"))
+    c2.metric("SpO₂", health_metric(h["spo2"], "%"))
+    c3.metric("Steps", health_metric(h["steps"], grouped=True))
+    c4.metric("Sleep", health_metric(h["sleep"], " hours"))
 
-    st.caption(
-        "These are manually entered values, not live medical readings."
-    )
+    wearable = st.session_state.wearable
+    if wearable["name"]:
+        status = "Connected" if wearable["connected"] else "Not connected"
+        st.write(f"**{wearable['name']}** · {status}")
+    st.caption("Connection status is self-reported; live device syncing is not available.")
 
 
 # -------------------- MOOD --------------------
@@ -379,53 +489,6 @@ elif page == "Mood & Wellbeing":
     )
 
 
-# -------------------- WEARABLES --------------------
-
-elif page == "Wearables":
-
-    hero(
-        "Your Wearables ⌚",
-        "Bring supported health readings together."
-    )
-
-    st.markdown("""
-    <div class="mw-card">
-        <h3>⌚ Demo Wearable</h3>
-        <p class="muted">
-            Sample device readings are shown below.
-            Live readings need a supported device integration
-            and user permission.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    h = st.session_state.health
-
-    a, b, c = st.columns(3)
-    a.metric("Heart Rate", f"{h['heart_rate']} bpm")
-    b.metric("SpO₂", f"{h['spo2']}%")
-    c.metric("Steps", f"{h['steps']:,}")
-
-    st.subheader("Add a Sample Reading")
-
-    with st.form("wearable_form"):
-        whr = st.number_input("Heart rate", 30, 220, 76)
-        wspo = st.number_input("SpO₂", 50, 100, 98)
-        wsteps = st.number_input("Steps", 0, 100000, 6421)
-        wsleep = st.number_input("Sleep hours", 0.0, 24.0, 7.0)
-
-        save = st.form_submit_button("Save Reading")
-
-    if save:
-        st.session_state.health = {
-            "heart_rate": whr,
-            "spo2": wspo,
-            "steps": wsteps,
-            "sleep": wsleep
-        }
-        st.success("Sample reading saved.")
-
-
 # -------------------- HEALTH TRENDS --------------------
 
 elif page == "Health Trends":
@@ -437,27 +500,32 @@ elif page == "Health Trends":
 
     import pandas as pd
 
-    df = pd.DataFrame({
-        "Day": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-        "Heart Rate": [75, 73, 77, 72, 74, 71, 72],
-        "Sleep Hours": [6.8, 7.1, 6.5, 7.6, 7.2, 8.0, 7.5],
-        "Steps": [5200, 6100, 4900, 7800, 7200, 9100, 8432]
-    })
+    if not st.session_state.health_history:
+        st.info("Your health trends will appear after you save readings.")
+    else:
+        df = pd.DataFrame(st.session_state.health_history).set_index("Date")
+        tab1, tab2, tab3 = st.tabs(["Heart Rate", "Sleep", "Steps"])
 
-    tab1, tab2, tab3 = st.tabs(
-        ["Heart Rate", "Sleep", "Steps"]
-    )
+        with tab1:
+            chart_data = df["Heart Rate"].dropna()
+            if not chart_data.empty:
+                st.line_chart(chart_data)
+            else:
+                st.info("No heart rate readings yet.")
 
-    with tab1:
-        st.line_chart(df.set_index("Day")[["Heart Rate"]])
+        with tab2:
+            chart_data = df["Sleep Hours"].dropna()
+            if not chart_data.empty:
+                st.bar_chart(chart_data)
+            else:
+                st.info("No sleep readings yet.")
 
-    with tab2:
-        st.bar_chart(df.set_index("Day")[["Sleep Hours"]])
-
-    with tab3:
-        st.bar_chart(df.set_index("Day")[["Steps"]])
-
-    st.caption("Illustrative demo trends, not live wearable data.")
+        with tab3:
+            chart_data = df["Steps"].dropna()
+            if not chart_data.empty:
+                st.bar_chart(chart_data)
+            else:
+                st.info("No step readings yet.")
 
 
 
@@ -485,8 +553,7 @@ elif page == "AI Companion":
     """, unsafe_allow_html=True)
 
     st.info(
-        "✨ In Development — We're working on making your AI Companion "
-        "more conversational, personalised, and context-aware."
+        "we are still working on this .. this will be added real soon"
     )
 
     st.markdown("### What's coming")
@@ -557,8 +624,7 @@ elif page == "Comfort Voice":
     """, unsafe_allow_html=True)
 
     st.info(
-        "🎧 In Development — Personalised voice experiences and "
-        "comfort audio are still being worked on."
+        "we are still working on this .. this will be added real soon"
     )
 
     st.markdown("### What's coming")
@@ -593,92 +659,141 @@ elif page == "Comfort Voice":
         "No voice cloning is performed by this page."
     )
 # -------------------- GAMES --------------------
-
 elif page == "Games":
-
-    hero(
-        "Little Moments, Big Focus 🧩",
-        "Try a short activity for memory, attention, or relaxation."
-    )
+    st.title("Logic Games")
 
     game = st.selectbox(
         "Choose a game",
-        [
-            "Memory Match",
-            "Focus & Find",
-            "Breathing Zone",
-            "Daily Recall"
-        ]
+        ["Number Memory", "Sudoku", "Pattern Logic"]
     )
+    progress = game_progress(game)
+    score_column, level_column = st.columns(2)
+    score_column.metric("Score", progress["score"])
+    level_column.metric("Level", progress["level"])
 
-    if game == "Memory Match":
+    if game == "Number Memory":
+        level = progress["level"]
+        challenge = st.session_state.get("number_memory_challenge")
+        if not challenge or challenge["level"] != level:
+            length = min(level + 2, 12)
+            challenge = {
+                "level": level,
+                "digits": "".join(
+                    str(random.randint(0, 9)) for _ in range(length)
+                )
+            }
+            st.session_state.number_memory_challenge = challenge
+            st.session_state.memory_is_revealed = True
 
-        sequence = st.session_state.get(
-            "memory_sequence",
-            ["🌸", "🌙", "🦋"]
-        )
+        st.write(f"Memorize the {len(challenge['digits'])}-digit sequence.")
+        if st.session_state.get("memory_is_revealed", True):
+            st.code("   ".join(challenge["digits"]), language=None)
+            if st.button("Hide sequence"):
+                st.session_state.memory_is_revealed = False
+                st.rerun()
+        else:
+            if st.button("Show sequence"):
+                st.session_state.memory_is_revealed = True
+                st.rerun()
 
-        st.write("Remember this sequence:")
+            with st.form(f"memory_form_{level}"):
+                answer = st.text_input("Enter the sequence", max_chars=12)
+                submitted = st.form_submit_button("Check answer")
 
-        st.markdown("## " + "   ".join(sequence))
+            if submitted:
+                if answer.strip() == challenge["digits"]:
+                    award_game_level(game, 10)
+                    st.session_state.memory_is_revealed = True
+                    st.success("Correct. Level complete.")
+                    st.rerun()
+                else:
+                    st.error("Not quite. Try again.")
 
-        answer = st.text_input(
-            "Type the emojis in the same order"
-        )
+    elif game == "Pattern Logic":
+        level = progress["level"]
+        scale = 1 + (level - 1) // 5
+        patterns = [
+            ([2, 4, 6, 8], 10),
+            ([3, 6, 9, 12], 15),
+            ([1, 4, 9, 16], 25),
+            ([1, 1, 2, 3, 5], 8),
+            ([2, 5, 7, 10, 12], 15)
+        ]
+        sequence, answer = patterns[(level - 1) % len(patterns)]
+        sequence = [number * scale for number in sequence]
+        answer *= scale
+        options = sorted({answer - 2 * scale, answer, answer + scale, answer + 3 * scale})
 
-        if st.button("Check Answer"):
-            if answer.replace(" ", "") == "".join(sequence):
-                st.success("You got it! Great job 💜")
+        st.write("Find the next number in the sequence:")
+        st.markdown("### " + "  ·  ".join(map(str, sequence)) + "  ·  ?")
+        with st.form(f"pattern_form_{level}"):
+            selected = st.radio(
+                "Next number",
+                options,
+                horizontal=True,
+                label_visibility="collapsed"
+            )
+            submitted = st.form_submit_button("Submit answer")
+
+        if submitted:
+            if selected == answer:
+                award_game_level(game, 10)
+                st.success("Correct. Level complete.")
+                st.rerun()
             else:
-                st.info("Not quite. Take your time and try again.")
-
-        if st.button("New Sequence"):
-            st.session_state.memory_sequence = random.sample(
-                ["🌸", "🌙", "🦋", "🍃", "⭐", "💜"], 3
-            )
-            st.rerun()
-
-    elif game == "Focus & Find":
-
-        st.write("Find the special flower 🌼")
-
-        options = random.sample(
-            ["🌷", "🌼", "🌙", "🍃", "🌸", "⭐"], 6
-        )
-
-        cols = st.columns(6)
-
-        for i, option in enumerate(options):
-            with cols[i]:
-                if st.button(option, key=f"focus_{i}"):
-                    if option == "🌼":
-                        st.success("You found it!")
-                    else:
-                        st.info("Good try! Look again.")
-
-    elif game == "Breathing Zone":
-
-        st.markdown("### Breathe in · Hold · Breathe out")
-
-        st.write(
-            "Try breathing in for 4 seconds, holding gently "
-            "for 4, and breathing out for 6. Stop if uncomfortable."
-        )
-
-        if st.button("Start Breathing Exercise"):
-            st.success(
-                "Relax your shoulders. Breathe slowly and comfortably."
-            )
+                st.error("Not quite. Look for the rule and try again.")
 
     else:
+        level = progress["level"]
+        puzzle = [
+            [5, 3, 0, 0, 7, 0, 0, 0, 0],
+            [6, 0, 0, 1, 9, 5, 0, 0, 0],
+            [0, 9, 8, 0, 0, 0, 0, 6, 0],
+            [8, 0, 0, 0, 6, 0, 0, 0, 3],
+            [4, 0, 0, 8, 0, 3, 0, 0, 1],
+            [7, 0, 0, 0, 2, 0, 0, 0, 6],
+            [0, 6, 0, 0, 0, 0, 2, 8, 0],
+            [0, 0, 0, 4, 1, 9, 0, 0, 5],
+            [0, 0, 0, 0, 8, 0, 0, 7, 9]
+        ]
+        extra_blanks = [
+            (0, 1), (1, 0), (2, 1), (3, 0), (4, 3), (5, 0),
+            (6, 1), (7, 3), (8, 4), (0, 4), (1, 3), (2, 2),
+            (3, 4), (4, 0), (5, 4), (6, 6), (7, 5), (8, 7)
+        ]
+        for row, column in extra_blanks[:min((level - 1) * 3, len(extra_blanks))]:
+            puzzle[row][column] = 0
 
-        st.write("Recall three things from your day.")
+        st.write("Complete each row, column, and 3×3 box with numbers 1–9.")
+        with st.form(f"sudoku_form_{level}"):
+            board = []
+            for row_index, row in enumerate(puzzle):
+                columns = st.columns(9, gap="small")
+                board_row = []
+                for column_index, value in enumerate(row):
+                    cell_key = f"sudoku_{level}_{row_index}_{column_index}"
+                    with columns[column_index]:
+                        cell_value = st.number_input(
+                            f"Row {row_index + 1}, column {column_index + 1}",
+                            min_value=0,
+                            max_value=9,
+                            value=value if value else st.session_state.get(cell_key, 0),
+                            step=1,
+                            key=cell_key,
+                            label_visibility="collapsed",
+                            disabled=value != 0
+                        )
+                    board_row.append(cell_value)
+                board.append(board_row)
+            submitted = st.form_submit_button("Check Sudoku")
 
-        recall = st.text_area("Your daily recall")
-
-        if st.button("Save Recall"):
-            st.session_state.daily_recall = recall
-            st.success("Your recall was saved for this session.")
+        if submitted:
+            if valid_sudoku(board):
+                award_game_level(game, 25)
+                st.success("Solved. Level complete.")
+                st.rerun()
+            else:
+                st.error("The grid is incomplete or has a conflict. Keep going.")
 
 
 # -------------------- PREGNANCY CARE --------------------
@@ -971,31 +1086,33 @@ elif page == "Settings":
 
         age = st.number_input(
             "Age",
-            1, 120,
-            int(st.session_state.age)
+            min_value=1,
+            max_value=120,
+            value=st.session_state.age,
+            placeholder="Not entered"
         )
 
+        blood_groups = [
+            "", "Unknown", "A+", "A-", "B+", "B-",
+            "AB+", "AB-", "O+", "O-"
+        ]
         blood_group = st.selectbox(
             "Blood group",
-            ["Unknown", "A+", "A-", "B+", "B-",
-             "AB+", "AB-", "O+", "O-"],
+            blood_groups,
             index=(
-                ["Unknown", "A+", "A-", "B+", "B-",
-                 "AB+", "AB-", "O+", "O-"].index(
-                    st.session_state.blood_group
-                )
+                blood_groups.index(st.session_state.blood_group)
                 if st.session_state.blood_group in
-                ["Unknown", "A+", "A-", "B+", "B-",
-                 "AB+", "AB-", "O+", "O-"]
+                blood_groups
                 else 0
-            )
+            ),
+            format_func=lambda value: value or "Select blood group"
         )
 
         save = st.form_submit_button("Save Profile")
 
     if save:
 
-        st.session_state.name = name.strip() or "Friend"
+        st.session_state.name = name.strip()
         st.session_state.age = age
         st.session_state.blood_group = blood_group
 
